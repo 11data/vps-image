@@ -1,0 +1,66 @@
+# OpenClaw Gateway Configuration
+# This file is generated during provisioning, but this shows the structure
+
+{
+  "gateway": {
+    "mode": "local",
+    "bind": "lan",
+    "port": 18789,
+    "auth": {
+      "mode": "token",
+      "token": "YOUR_GATEWAY_TOKEN_HERE"
+    },
+    "controlUi": {
+      "enabled": true,
+      "allowInsecureAuth": true
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "anthropic/claude-sonnet-4-5"
+      },
+      "workspace": "/home/clawd/clawd"
+    },
+    "list": [
+      {
+        "id": "mira",
+        "workspace": "/home/clawd/clawd/agents/solo/mira"
+      },
+      {
+        "id": "felix",
+        "workspace": "/home/clawd/clawd/agents/solo/felix"
+      },
+      {
+        "id": "sophie",
+        "workspace": "/home/clawd/clawd/agents/solo/sophie"
+      },
+      {
+        "id": "martin",
+        "workspace": "/home/clawd/clawd/agents/solo/martin"
+      },
+      {
+        "id": "diana",
+        "workspace": "/home/clawd/clawd/agents/solo/diana"
+      }
+    ]
+  },
+  "env": {
+    "ANTHROPIC_API_KEY": "YOUR_API_KEY_HERE"
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "allowlist",
+      "allowFrom": ["YOUR_TELEGRAM_USER_ID"],
+      "groupPolicy": "deny",
+      "accounts": {
+        "default": {
+          "name": "OpenClaw Bot",
+          "botToken": "YOUR_BOT_TOKEN_HERE",
+          "streamMode": "partial"
+        }
+      }
+    }
+  }
+}
