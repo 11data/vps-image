@@ -5,10 +5,13 @@ version: "3.8"
 
 services:
   # PostgreSQL Database for Mission Control
+  # Exposed on host port 5433 so Mission Control (using host network) can reach it
   postgres:
     image: postgres:16-alpine
     container_name: rya-postgres
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:5433:5432"  # Expose to localhost only
     environment:
       POSTGRES_DB: mission_control
       POSTGRES_USER: clawd
@@ -25,27 +28,29 @@ services:
       - rya-network
 
   # Mission Control API
+  # IMPORTANT: Uses network_mode: host to access OpenClaw Gateway on localhost:18789
+  # This means:
+  # - Binds directly to host port 18790 (no port mapping needed)
+  # - Can reach OpenClaw at localhost:18789
+  # - Can reach PostgreSQL at localhost:5433
   mission-control:
     image: ghcr.io/11data/mission-control:latest
     container_name: rya-mission-control
     restart: unless-stopped
+    network_mode: host  # Share host network - simplest for Linux VPS
     user: clawd:clawd
-    working_dir: /home/clawd/.openclaw/skills/mission-control
+    working_dir: /opt/vps-image
     environment:
       # API Configuration
       MISSION_CONTROL_PORT: "18790"
       MISSION_CONTROL_HOST: "0.0.0.0"
-      # Database
-      MISSION_CONTROL_DB_URL: "postgresql://clawd:${POSTGRES_PASSWORD:-changeme}@postgres:5432/mission_control"
+      # Database - reachable via localhost:5433 (postgres exposes port)
+      MISSION_CONTROL_DB_URL: "postgresql://clawd:${POSTGRES_PASSWORD:-changeme}@localhost:5433/mission_control"
       # Auth token (shared with gateway for simplicity)
       MISSION_CONTROL_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-changeme}
-      # OpenClaw Integration (OpenClaw runs on host network)
+      # OpenClaw Integration - both on host network
       OPENCLAW_INSTANCE_ID: ${OPENCLAW_INSTANCE_ID:-vps}
-      OPENCLAW_GATEWAY_URL: "http://host.docker.internal:18789"
-    ports:
-      - "18790:18790"  # Mission Control API port
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      OPENCLAW_GATEWAY_URL: "http://localhost:18789"
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,8 +60,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
-    networks:
-      - rya-network
 
 volumes:
   postgres_data:
