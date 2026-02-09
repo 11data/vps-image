@@ -1,5 +1,6 @@
 # RunYourAgent VPS Image
-# Docker Compose configuration for OpenClaw Gateway + Mission Control API + PostgreSQL
+# Docker Compose configuration for Mission Control API + PostgreSQL
+# Note: OpenClaw runs directly on the host (installed via npm), not in Docker
 version: "3.8"
 
 services:
@@ -23,45 +24,9 @@ services:
     networks:
       - rya-network
 
-  # OpenClaw Gateway
-  openclaw:
-    image: ghcr.io/runyouragent/openclaw:latest
-    container_name: rya-openclaw
-    restart: unless-stopped
-    user: clawd:clawd
-    working_dir: /home/clawd/clawd
-    environment:
-      # Gateway configuration
-      OPENCLAW_GATEWAY_MODE: "local"
-      OPENCLAW_GATEWAY_BIND: "lan"
-      OPENCLAW_GATEWAY_PORT: "18789"
-      OPENCLAW_GATEWAY_AUTH_MODE: "token"
-      OPENCLAW_GATEWAY_AUTH_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-changeme}
-      # Control UI
-      OPENCLAW_CONTROL_UI_ENABLED: "true"
-      OPENCLAW_CONTROL_UI_ALLOW_INSECURE_AUTH: "true"
-      # Network
-      NODE_ENV: production
-    volumes:
-      - openclaw_data:/home/clawd/.openclaw
-      - openclaw_workspace:/home/clawd/clawd
-    ports:
-      - "18789:18789"  # Gateway port
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://localhost:18789/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    networks:
-      - rya-network
-
   # Mission Control API
   mission-control:
-    image: ghcr.io/runyouragent/mission-control:latest
+    image: ghcr.io/11data/mission-control:latest
     container_name: rya-mission-control
     restart: unless-stopped
     user: clawd:clawd
@@ -74,15 +39,15 @@ services:
       MISSION_CONTROL_DB_URL: "postgresql://clawd:${POSTGRES_PASSWORD:-changeme}@postgres:5432/mission_control"
       # Auth token (shared with gateway for simplicity)
       MISSION_CONTROL_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-changeme}
-      # OpenClaw Integration
+      # OpenClaw Integration (OpenClaw runs on host network)
       OPENCLAW_INSTANCE_ID: ${OPENCLAW_INSTANCE_ID:-vps}
-      OPENCLAW_GATEWAY_URL: "http://openclaw:18789"
+      OPENCLAW_GATEWAY_URL: "http://host.docker.internal:18789"
     ports:
       - "18790:18790"  # Mission Control API port
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
-        condition: service_healthy
-      openclaw:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://localhost:18790/health || exit 1"]
@@ -95,10 +60,6 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
-  openclaw_data:
-    driver: local
-  openclaw_workspace:
     driver: local
 
 networks:
